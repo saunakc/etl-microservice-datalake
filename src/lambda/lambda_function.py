@@ -20,54 +20,61 @@ currentRegion = this_session.region_name
 
 currentAccount = boto3.client('sts').get_caller_identity()['Account']
 
-glue = boto3.client(service_name='glue', region_name=currentRegion,
-endpoint_url='https://glue.us-east-1.amazonaws.com')
+glue = boto3.client(service_name='glue', region_name=currentRegion, endpoint_url='https://glue.us-east-1.amazonaws.com')
 
 def lambda_handler(event, context):
 # TODO implement
 print "Event is: %s" %event
+
 if event is not None:
-prefixedTablename = event['PrefixedTablename']
-snapshotYN = event['SnapshotYN']
-fileFormat = event['FileFormat']
-writeMode = event['WriteMode']
-s3FilePath = event['s3FilePath']
-jdbcUrl = event['JdbcUrl']
-glueRSConnection = event['GlueRSConnection']
-redshiftRoleArn = event['RedshiftRoleArn']
+    prefixedTablename = event['PrefixedTablename']
+    snapshotYN = event['SnapshotYN']
+    fileFormat = event['FileFormat']
+    writeMode = event['WriteMode']
+    s3FilePath = event['s3FilePath']
+    jdbcUrl = event['JdbcUrl']
+    glueRSConnection = event['GlueRSConnection']
+    redshiftRoleArn = event['RedshiftRoleArn']
 else:
-print "Insufficient paramaters. Aborting ..."
+    print "Insufficient paramaters. Aborting ..."
+
+## Retrieve snapshot based partition from current system time. Current snapshot is sysdate - 1.
 prev_day_date_time = datetime.now() - timedelta(days = 1)
 print prev_day_date_time
 day_partition_value = "snapshot_day=%s" %prev_day_date_time.strftime("%Y-%m-%d")
+
 print day_partition_value
 print "writeMode: %s" %writeMode
 print "prefixedTablename: %s" %prefixedTablename
 print "snapshotYN: %s" %snapshotYN
 print "fileFormat: %s" %fileFormat
-myJob = glue.create_job(Name=prefixedTablename + "_ExtractToDataLake", 
-Role='AWSGlueServiceRoleDefault', \
-Command={'Name': 'glueetl', 'ScriptLocation': 's3://aws-glue-scripts-' +
-currentAccount + '-' + currentRegion + '//ExtractToDataLake'},\
-Connections= {'Connections' : glueRSConnection},\
-MaxRetries = 1, \
-ExecutionProperty = {'MaxConcurrentRuns': 1}, \
-DefaultArguments = {"--TempDir": "s3://aws-glue-temporary-" + currentAccount +
-'-' + currentRegion + "/" }
-)
+
+
+## Create Glue job with the parameters provided in the input
+myJob = glue.create_job(Name=prefixedTablename + "_ExtractToDataLake", \
+                        Role='AWSGlueServiceRoleDefault', \
+                        Command={'Name': 'glueetl', 'ScriptLocation': 's3://aws-glue-scripts-' +
+                        currentAccount + '-' + currentRegion + '//ExtractToDataLake'},\
+                        Connections= {'Connections' : glueRSConnection},\
+                        MaxRetries = 1, \
+                        ExecutionProperty = {'MaxConcurrentRuns': 1}, \
+                        DefaultArguments = {"--TempDir": "s3://aws-glue-temporary-" + currentAccount + '-' + currentRegion + "/" }
+                        )
 #myNewJobRun = glue.start_job_run(JobName=myJob['Name'])
 myNewJobRun = glue.start_job_run( \
-JobName=myJob['Name'], \
-Arguments = { \
-'--prefixed_table_name': prefixedTablename, \
-'--write_mode': writeMode, \
-'--snapshot_yn': snapshotYN, \
-'--file_format': fileFormat, \
-'--s3path_datalake' : s3FilePath, \
-'--jdbc_url' :jdbcUrl, \
-'--redshift_role_arn' : redshiftRoleArn, \
-'--day_partition_key':   'partition_0', \
-'--day_partition_value':  day_partition_value} )
+                        JobName=myJob['Name'], \
+                        Arguments = { \
+                                    '--prefixed_table_name': prefixedTablename, \
+                                    '--write_mode': writeMode, \
+                                    '--snapshot_yn': snapshotYN, \
+                                    '--file_format': fileFormat, \
+                                    '--s3path_datalake' : s3FilePath, \
+                                    '--jdbc_url' :jdbcUrl, \
+                                    '--redshift_role_arn' : redshiftRoleArn, \
+                                    '--day_partition_key':   'partition_0', \
+                                    '--day_partition_value':  day_partition_value} 
+                                 )
+## Glue returns control here immediately 
 print "Jobrun ID %s" %myNewJobRun['JobRunId']
 status = glue.get_job_run(JobName=myJob['Name'], RunId=myNewJobRun['JobRunId'])
 print "Jobrun status %s" %status['JobRun']['JobRunState']
