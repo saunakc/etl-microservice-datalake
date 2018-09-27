@@ -112,7 +112,7 @@ def lambda_handler(event, context):
                             Role='AWSGlueServiceRoleDefault', \
                             Command={'Name': 'glueetl', 'ScriptLocation': 's3://aws-glue-scripts-' +
                             currentAccount + '-' + currentRegion + '//admin/unload-table-part'},\
-                            #Connections= {'Connections' : glueRSConnection},\
+                            Connections= {'Connections' : [glueRSConnection]},\
                             MaxRetries = 1, \
                             ExecutionProperty = {'MaxConcurrentRuns': 1}, \
                             DefaultArguments = {"--TempDir": "s3://aws-glue-temporary-" + currentAccount + '-' + currentRegion + "/temp" }
