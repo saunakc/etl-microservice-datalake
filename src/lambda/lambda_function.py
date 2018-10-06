@@ -35,7 +35,7 @@ def lambda_handler(event, context):
                     }
                 ]
             )
-        exit
+        sys.exit(1)
     
     try:
         glue = boto3.client(service_name='glue', region_name=currentRegion, endpoint_url='https://glue.us-east-1.amazonaws.com')
@@ -51,7 +51,7 @@ def lambda_handler(event, context):
                     }
                 ]
             )
-        exit
+        sys.exit(1)
     
     try:
         print("Writing into Cloudwatch under namespace Lambda-ETL ...")
@@ -67,7 +67,7 @@ def lambda_handler(event, context):
             )
     except:
         print("Writing into Cloudwatch from Lambda function failed: exception %s" %sys.exc_info()[1])
-        exit
+        sys.exit(1)
 
     if event is not None:
         prefixedTablename = event['PrefixedTablename']
@@ -97,7 +97,7 @@ def lambda_handler(event, context):
                     }
                 ]
             )
-        exit
+        sys.exit(1)
     
     print("prefixedTablename = %s" %prefixedTablename)
     print("jdbcUrl = %s" %jdbcUrl)
@@ -108,10 +108,12 @@ def lambda_handler(event, context):
     ## Create Glue job with the parameters provided in the input
     try:
         print("Trying to launch Glue job")
+        scriptLocation = 's3://aws-glue-scripts-' + currentAccount + '-' + currentRegion + '/admin/unload-table-part.py'
+        print("Script location: %s" % scriptLocation)
+        
         myJob = glue.create_job(Name=prefixedTablename + "_ExtractToDataLake", \
                             Role='AWSGlueServiceRoleDefault', \
-                            Command={'Name': 'glueetl', 'ScriptLocation': 's3://aws-glue-scripts-' +
-                            currentAccount + '-' + currentRegion + '//admin/unload-table-part'},\
+                            Command={'Name': 'glueetl', 'ScriptLocation': scriptLocation},\
                             Connections= {'Connections' : [glueRSConnection]},\
                             MaxRetries = 1, \
                             ExecutionProperty = {'MaxConcurrentRuns': 1}, \
@@ -144,7 +146,7 @@ def lambda_handler(event, context):
                     }
                 ]
             )
-        exit
+        sys.exit(1)
     
     ## Glue returns control here immediately 
     print("Jobrun ID %s" %myJobRun['JobRunId'])
